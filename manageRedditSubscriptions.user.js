@@ -1,9 +1,8 @@
 // ==UserScript==
 // @name		Manage Reddit Subscriptions
-// @version		0.70
+// @version		0.72
 // @namespace	http://ictinus.com/mrs/
 // @description	Locally manages your Reddit subscriptions so that you can determine which of your favourite 50 you should be subscribed to at any time. Allows reddit tagging, filtering, view (single or multi reddits).
-// @match http://*.reddit.com/*
 // @match https://*.reddit.com/*
 // ==/UserScript==
 
@@ -21,9 +20,11 @@
 //                                reduced maximum height of interface
 // Update: v0.70 02 October 2011, added 'Show Tagged Only' filter; added auto close other UIs.
 //				  changed script site security to allow https and remove scary 'allow access to all domains' message.
+// Update: v0.71 28 July 2014, removed call to slurpReddits on page load as it is now broken. To be fixed.
+// Update: v0.72 28 June 2015, move to HTTPS only.
 
-//TODO: Ability to remove reddits
-// TODO allow export of selected reddits.
+// TODO: Ability to remove reddits
+// TODO: allow export of selected reddits.
 //		Ability to export/import reddits (that have tags?)
 //			export subscribed reddits
 //			export reddits with tags
@@ -50,8 +51,8 @@ if (!Array.prototype.remove) {
 };
 
 var manageRedditSubs = {
-	version : "0.70",
-	defaultJSON : {version: "0.70", filterText:"", subscribed:{}, reddits:{}, subqueue:{}, fetched:false, reqcount:0, nextSubFetch:"", nextUnSubFetch:"", hideOver18: false, showSubscribedOnly: false, showTaggedOnly: false },
+	version : "0.72",
+	defaultJSON : {version: "0.72", filterText:"", subscribed:{}, reddits:{}, subqueue:{}, fetched:false, reqcount:0, nextSubFetch:"", nextUnSubFetch:"", hideOver18: false, showSubscribedOnly: false, showTaggedOnly: false },
 	reqLimit : 20,
 	reqDelay : 2000, // the minimum millisecond delay requested by Reddit
 						// Admins
@@ -143,7 +144,7 @@ var manageRedditSubs = {
 
 				// build request and send
 				xhr = new XMLHttpRequest;
-				var url = "http://www.reddit.com/api/subscribe";
+				var url = "https://www.reddit.com/api/subscribe";
 				var params = "sr=" + firstReq.id + "&action=" + firstReq.action
 						+ "&r=" + firstReq.label + "&renderstyle=html&uh="
 						+ manageRedditSubs.uh;
@@ -764,8 +765,10 @@ var manageRedditSubs = {
 		return false;
 	},
 	filterDisplay : function() {
+		console.log("filtering display");
 		var mrsData = manageRedditSubs.mrs;
 		var theDisplay = document.getElementById("mrsDisplay");
+		var docFragment = document.createDocumentFragment();
 		var strHTML = "";
 		var strClass = "";
 		var iRedditCount = 0;
@@ -858,8 +861,10 @@ var manageRedditSubs = {
 					theClearP.className = "mrsp";
 					theRow.appendChild(theClearP);
 	
-					theDisplay.appendChild(theRow);
+					//theDisplay.appendChild(theRow);
+					docFragment.appendChild(theRow);
 				}
+				theDisplay.appendChild(docFragment);
 			}
 			iRedditCount++;
 		}
@@ -1014,12 +1019,12 @@ var manageRedditSubs = {
 				manageRedditSubs.writeMRS();
 
 				if (bSubscribed) {
-					var strURL = "http://www.reddit.com/reddits/mine.json";
+					var strURL = "https://www.reddit.com/reddits/mine.json";
 					strNextFetch = (manageRedditSubs.mrs.nextSubFetch != "")
 							? "?after=" + manageRedditSubs.mrs.nextSubFetch
 							: "";
 				} else {
-					var strURL = "http://www.reddit.com/reddits.json";
+					var strURL = "https://www.reddit.com/reddits.json";
 					strNextFetch = (manageRedditSubs.mrs.nextUnSubFetch != "")
 							? "?after=" + manageRedditSubs.mrs.nextUnSubFetch
 							: "";
@@ -1239,22 +1244,23 @@ var manageRedditSubs = {
 		return false;
 	},
 	removeClass : function(ele, cls) {
-		if (this.hasClass(ele, cls)) {
+		if (manageRedditSubs.hasClass(ele, cls)) {
 			ele.className = ele.className.replace(cls, '');
 			ele.className.replace(/ +/g, ' ');
 		}
 	},
 	addClass : function(ele, cls) {
 		// from http://userscripts.org/scripts/review/77390
-		if (!this.hasClass(ele, cls)) ele.className += " " + cls;
+		if (!manageRedditSubs.hasClass(ele, cls)) ele.className += " " + cls;
 		ele.className = ele.className.replace(/ +/g, ' ');
 	},
 	init : function() {
 		// first tests. Parse a page to determine if we are looking at a
 		// sub-reddit and capture its id/name/subscription
 		manageRedditSubs.createUITab();
+		
 		manageRedditSubs.getCurrentRedditInfo();
-		manageRedditSubs.slurpReddits();
+		//manageRedditSubs.slurpReddits(); //TODO
 
 		// first time run, get a list of all subscriptions
 		if (manageRedditSubs.mrs.fetched === false) {
